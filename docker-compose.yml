@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  copy-trader:
+    build: .
+    container_name: hyperliquid-copy-trader
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    environment:
+      - TZ=UTC
