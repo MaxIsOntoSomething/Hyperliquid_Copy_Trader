@@ -53,11 +53,11 @@ class RiskManagementConfig(BaseModel):
 class Settings(BaseModel):
     # Target address to copy (wallet or vault - the bot treats them the same)
     target_wallet: str = "0x0ba5de43fa2419a25c2e680f84aff3a8f57fce22"
-    
+
     # Trading mode
     simulated_trading: bool = True
     simulated_account_balance: float = 1000.0
-    
+
     # Configuration sections
     hyperliquid: HyperliquidConfig = Field(default_factory=HyperliquidConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
@@ -65,7 +65,11 @@ class Settings(BaseModel):
     leverage: LeverageConfig = Field(default_factory=LeverageConfig)
     copy_rules: CopyRulesConfig = Field(default_factory=CopyRulesConfig)
     risk_management: RiskManagementConfig = Field(default_factory=RiskManagementConfig)
-    
+
+    # Web app
+    webapp_url: str = ""       # Public HTTPS URL, e.g. https://trading.example.com
+    webapp_port: int = 8080    # Internal port the FastAPI server listens on
+
     # Paths
     log_level: str = "INFO"
     log_file: str = "./logs/trading.log"
@@ -132,7 +136,11 @@ class Settings(BaseModel):
         settings.log_level = os.getenv('LOG_LEVEL', settings.log_level)
         settings.log_file = os.getenv('LOG_FILE', settings.log_file)
         settings.database_url = os.getenv('DATABASE_URL', settings.database_url)
-        
+
+        settings.webapp_url = os.getenv('WEBAPP_URL', settings.webapp_url)
+        webapp_port = os.getenv('WEBAPP_PORT', str(settings.webapp_port))
+        settings.webapp_port = int(webapp_port)
+
         return settings
 
 # Global settings instance
