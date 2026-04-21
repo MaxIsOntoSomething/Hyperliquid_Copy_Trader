@@ -8,6 +8,7 @@ from hyperliquid.websocket import HyperliquidWebSocket
 from hyperliquid.models import WebSocketUpdate, PositionSide, OrderSide
 from copy_engine import WalletMonitor, TradeExecutor, PositionSizer
 from telegram_bot import TelegramBot, NotificationService
+from webapp.server import WebAppServer
 
 # Setup logging
 setup_logger(settings.log_file, settings.log_level)
@@ -22,6 +23,7 @@ position_sizer: PositionSizer = None
 client: HyperliquidClient = None
 telegram_bot: TelegramBot = None
 notifier: NotificationService = None
+webapp_server: WebAppServer = None
 
 # State tracking
 is_paused = False
@@ -657,13 +659,17 @@ async def get_positions() -> list:
 
     positions = []
     for pos in monitor.current_state.positions:
+        side_val = pos.side.value.upper() if hasattr(pos.side, 'value') else str(pos.side)
+        pnl_pct = pos.pnl_percentage if hasattr(pos, 'pnl_percentage') else 0.0
         positions.append({
             'symbol': pos.symbol,
+            'side': side_val,
             'size': pos.size,
             'entry_price': pos.entry_price,
             'current_price': pos.current_price,
             'unrealized_pnl': pos.unrealized_pnl,
-            'leverage': pos.leverage
+            'pnl_percentage': pnl_pct,
+            'leverage': pos.leverage,
         })
 
     return positions
@@ -1192,16 +1198,46 @@ async def main():
             'simulated_trading': settings.simulated_trading,
         }
         telegram_bot.get_pause_state_callback = lambda: is_paused
-        
+        telegram_bot.webapp_url = settings.webapp_url
+
         # Start Telegram bot
         await telegram_bot.start()
-        
+
         # Start hourly reports task
         asyncio.create_task(send_hourly_reports())
-        
+
         logger.info("✅ Telegram bot ready!")
     else:
         logger.warning("⚠️ Telegram bot not configured (add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to .env)")
+
+    # Initialize WebApp server if URL is configured
+    global webapp_server
+    if settings.telegram.bot_token and settings.telegram.chat_id:
+        webapp_server = WebAppServer(
+            port=settings.webapp_port,
+            bot_token=settings.telegram.bot_token,
+            allowed_user_id=settings.telegram.chat_id,
+        )
+        settings_lambda = lambda: {
+            'leverage_ratio': settings.leverage.adjustment_ratio,
+            'max_trades': settings.copy_rules.max_open_trades,
+            'blocked_assets': list(settings.copy_rules.blocked_assets or []),
+            'simulated_trading': settings.simulated_trading,
+        }
+        webapp_server.get_status_callback        = get_status
+        webapp_server.get_positions_callback     = get_positions
+        webapp_server.get_orders_callback        = get_orders
+        webapp_server.get_pnl_callback           = get_pnl
+        webapp_server.get_target_state_callback  = get_target_state
+        webapp_server.close_position_callback    = close_position_by_symbol
+        webapp_server.update_setting_callback    = update_setting
+        webapp_server.get_settings_callback      = settings_lambda
+        webapp_server.get_pause_state_callback   = lambda: is_paused
+        webapp_server.on_pause_requested         = handle_pause
+        webapp_server.on_resume_requested        = handle_resume
+
+        asyncio.create_task(webapp_server.start())
+        logger.info(f"✅ WebApp server started on port {settings.webapp_port}")
     
     try:
         # Get initial state

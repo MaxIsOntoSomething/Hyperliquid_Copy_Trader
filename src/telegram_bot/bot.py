@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional, Callable
 from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.error import BadRequest
 from telegram.ext import (
     Application,
@@ -40,6 +40,9 @@ class TelegramBot:
         self.update_setting_callback: Optional[Callable] = None
         self.get_settings_callback: Optional[Callable] = None   # sync lambda
         self.get_pause_state_callback: Optional[Callable] = None  # sync lambda
+
+        # Public URL of the Mini App (set from main.py)
+        self.webapp_url: str = ""
 
         # State for multi-step text input flows
         self._awaiting_input: dict = {}  # chat_id -> {"action": str}
@@ -332,6 +335,25 @@ class TelegramBot:
             except Exception as e:
                 await update.message.reply_text(f"❌ Error: {e}")
 
+    async def _app_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not self._check_authorized(update):
+            await update.message.reply_text("⛔ Unauthorized")
+            return
+        if not self.webapp_url:
+            await update.message.reply_text(
+                "⚠️ Web App URL not configured.\n\n"
+                "Add <code>WEBAPP_URL=https://your-domain.com</code> to your <code>.env</code> file.",
+                parse_mode="HTML"
+            )
+            return
+        keyboard = [[
+            InlineKeyboardButton("🚀 Open Dashboard", web_app=WebAppInfo(url=self.webapp_url))
+        ]]
+        await update.message.reply_text(
+            "Tap the button below to open the trading dashboard:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
     async def _stop_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not self._check_authorized(update):
             await update.message.reply_text("⛔ Unauthorized")
@@ -591,6 +613,7 @@ class TelegramBot:
         # Command handlers
         self.app.add_handler(CommandHandler("start", self._start_command))
         self.app.add_handler(CommandHandler("menu", self._start_command))
+        self.app.add_handler(CommandHandler("app", self._app_command))
         self.app.add_handler(CommandHandler("status", self._status_command))
         self.app.add_handler(CommandHandler("positions", self._positions_command))
         self.app.add_handler(CommandHandler("orders", self._orders_command))

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Hyperliquid Dashboard</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ─── Top bar ─────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-title">Hyperliquid</span>
+      <span id="mode-badge" class="badge badge-sim">SIM</span>
+    </div>
+    <div class="topbar-right">
+      <span id="status-badge" class="badge badge-active">ACTIVE</span>
+      <button class="icon-btn" id="refresh-btn" title="Refresh">↻</button>
+    </div>
+  </header>
+
+  <!-- ─── Screens ─────────────────────────────────────────── -->
+  <main class="screen-container">
+
+    <!-- Dashboard -->
+    <section id="screen-dashboard" class="screen active">
+      <div class="cards-grid">
+        <div class="card card-wide">
+          <div class="card-label">Balance</div>
+          <div class="card-value" id="dash-balance">—</div>
+        </div>
+        <div class="card card-wide pnl-card">
+          <div class="card-label">Session PnL</div>
+          <div class="card-value" id="dash-pnl">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Positions</div>
+          <div class="card-value" id="dash-positions">—</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Copied</div>
+          <div class="card-value" id="dash-trades">—</div>
+        </div>
+      </div>
+
+      <div class="section-title">Target Wallet</div>
+      <div class="target-card">
+        <div id="target-addr" class="target-addr">Loading…</div>
+        <div class="target-stats">
+          <span>Balance: <strong id="target-balance">—</strong></span>
+          <span>Positions: <strong id="target-positions">—</strong></span>
+          <span>PnL: <strong id="target-pnl">—</strong></span>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="pause-btn" class="btn btn-pause" onclick="togglePause()">⏸ Pause Bot</button>
+      </div>
+    </section>
+
+    <!-- Positions -->
+    <section id="screen-positions" class="screen">
+      <div id="positions-list" class="list-container">
+        <div class="empty-state">Loading positions…</div>
+      </div>
+    </section>
+
+    <!-- Orders -->
+    <section id="screen-orders" class="screen">
+      <div id="orders-list" class="list-container">
+        <div class="empty-state">Loading orders…</div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="screen-settings" class="screen">
+      <div class="settings-group">
+        <div class="settings-label">Leverage Ratio</div>
+        <div class="stepper">
+          <button class="stepper-btn" onclick="adjustLeverage(-0.1)">−</button>
+          <span class="stepper-val" id="lev-val">—</span>
+          <button class="stepper-btn" onclick="adjustLeverage(+0.1)">+</button>
+        </div>
+        <div class="settings-hint">Multiplier applied to target's leverage</div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">Max Open Trades</div>
+        <div class="stepper">
+          <button class="stepper-btn" onclick="adjustMaxTrades(-1)">−</button>
+          <span class="stepper-val" id="max-trades-val">—</span>
+          <button class="stepper-btn" onclick="adjustMaxTrades(+1)">+</button>
+        </div>
+        <button class="btn-text" onclick="setMaxTradesUnlimited()">Set Unlimited ∞</button>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">Blocked Assets</div>
+        <div id="blocked-chips" class="chip-list"></div>
+        <div class="add-blocked-row">
+          <input id="blocked-input" class="text-input" type="text" placeholder="e.g. BTC" />
+          <button class="btn btn-sm" onclick="addBlockedAsset()">Add</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">Trading Mode</div>
+        <label class="toggle-row">
+          <span id="mode-label">Simulated</span>
+          <div class="toggle" id="mode-toggle" onclick="toggleMode()">
+            <div class="toggle-thumb"></div>
+          </div>
+        </label>
+        <div class="settings-hint warning" id="mode-warning" style="display:none">
+          ⚠️ LIVE mode uses real funds!
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ─── Bottom nav ──────────────────────────────────────── -->
+  <nav class="bottomnav">
+    <button class="nav-btn active" onclick="switchTab('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('positions')" id="nav-positions">
+      <span class="nav-icon">📍</span>
+      <span class="nav-label">Positions</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('orders')" id="nav-orders">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">Orders</span>
+    </button>
+    <button class="nav-btn" onclick="switchTab('settings')" id="nav-settings">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Settings</span>
+    </button>
+  </nav>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
