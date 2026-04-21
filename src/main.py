@@ -650,11 +650,11 @@ async def get_status() -> str:
     """.strip()
 
 
-def get_positions() -> list:
+async def get_positions() -> list:
     """Get current positions for Telegram command"""
     if not monitor or not monitor.current_state:
         return []
-    
+
     positions = []
     for pos in monitor.current_state.positions:
         positions.append({
@@ -665,11 +665,11 @@ def get_positions() -> list:
             'unrealized_pnl': pos.unrealized_pnl,
             'leverage': pos.leverage
         })
-    
+
     return positions
 
 
-def get_orders() -> list:
+async def get_orders() -> list:
     """Get current open orders for Telegram command"""
     if not monitor or not monitor.current_state:
         return []
@@ -717,6 +717,100 @@ async def get_pnl() -> str:
 • Trades Copied: {trades_copied_count}
 • Open Positions: {len(simulated_positions) if settings.simulated_trading else (len(state.positions) if state else 0)}
     """.strip()
+
+
+async def get_target_state() -> dict:
+    """Return target wallet state for Telegram target view"""
+    state = monitor.current_state if monitor else None
+    return {
+        "address": settings.target_wallet,
+        "balance": state.balance if state else 0.0,
+        "total_equity": state.total_equity if state else 0.0,
+        "unrealized_pnl": state.unrealized_pnl if state else 0.0,
+        "position_count": len(state.positions) if state else 0,
+        "order_count": len(state.orders) if state else 0,
+    }
+
+
+async def close_position_by_symbol(symbol: str) -> bool:
+    """Close a specific position by symbol, called from Telegram button"""
+    if not executor:
+        return False
+    try:
+        result = await executor.close_position(symbol)
+        if result:
+            logger.info(f"Position {symbol} closed via Telegram")
+            if notifier:
+                await notifier.send_position_close_notification(
+                    symbol=symbol,
+                    is_simulated=settings.simulated_trading
+                )
+        return bool(result)
+    except Exception as e:
+        logger.error(f"Error closing position {symbol}: {e}")
+        return False
+
+
+async def refresh_target_state() -> bool:
+    """Force-refresh the monitor's cached state"""
+    if not monitor:
+        return False
+    try:
+        await monitor.get_current_state()
+        return True
+    except Exception as e:
+        logger.error(f"Error refreshing target state: {e}")
+        return False
+
+
+async def update_setting(key: str, value) -> tuple:
+    """
+    Update a runtime setting. Returns (success, message).
+    Keys: leverage_ratio, max_trades, sim_mode, blocked_add, blocked_remove
+    """
+    try:
+        if key == "leverage_ratio":
+            new_val = round(float(value), 1)
+            if new_val < 0.1 or new_val > 3.0:
+                return False, f"Leverage ratio must be 0.1–3.0 (got {new_val})"
+            settings.leverage.adjustment_ratio = new_val
+            return True, f"Leverage ratio set to {new_val}x"
+
+        elif key == "max_trades":
+            if value is None:
+                settings.copy_rules.max_open_trades = None
+                return True, "Max trades set to unlimited"
+            int_val = int(value)
+            if int_val < 1:
+                return False, "Max trades must be at least 1"
+            settings.copy_rules.max_open_trades = int_val
+            return True, f"Max trades set to {int_val}"
+
+        elif key == "sim_mode":
+            settings.simulated_trading = not settings.simulated_trading
+            mode = "SIMULATED" if settings.simulated_trading else "LIVE"
+            return True, f"Trading mode switched to {mode}"
+
+        elif key == "blocked_add":
+            asset = str(value).strip().upper()
+            if not hasattr(settings.copy_rules, 'blocked_assets') or settings.copy_rules.blocked_assets is None:
+                settings.copy_rules.blocked_assets = []
+            if asset not in settings.copy_rules.blocked_assets:
+                settings.copy_rules.blocked_assets.append(asset)
+            return True, f"{asset} added to blocked assets"
+
+        elif key == "blocked_remove":
+            asset = str(value).strip().upper()
+            if hasattr(settings.copy_rules, 'blocked_assets') and asset in settings.copy_rules.blocked_assets:
+                settings.copy_rules.blocked_assets.remove(asset)
+                return True, f"{asset} removed from blocked assets"
+            return False, f"{asset} not in blocked list"
+
+        else:
+            return False, f"Unknown setting key: {key}"
+    except Exception as e:
+        logger.error(f"Error updating setting {key}: {e}")
+        return False, str(e)
 
 
 async def get_positions_formatted() -> str:
@@ -1081,11 +1175,23 @@ async def main():
         # Set up Telegram callbacks
         telegram_bot.get_status_callback = get_status
         telegram_bot.get_positions_callback = get_positions_formatted
+        telegram_bot.get_raw_positions_callback = get_positions
         telegram_bot.get_orders_callback = get_orders
         telegram_bot.get_pnl_callback = get_pnl
         telegram_bot.on_pause_requested = handle_pause
         telegram_bot.on_resume_requested = handle_resume
         telegram_bot.on_stop_requested = handle_stop
+        telegram_bot.get_target_state_callback = get_target_state
+        telegram_bot.close_position_callback = close_position_by_symbol
+        telegram_bot.refresh_target_callback = refresh_target_state
+        telegram_bot.update_setting_callback = update_setting
+        telegram_bot.get_settings_callback = lambda: {
+            'leverage_ratio': settings.leverage.adjustment_ratio,
+            'max_trades': settings.copy_rules.max_open_trades,
+            'blocked_assets': list(settings.copy_rules.blocked_assets or []),
+            'simulated_trading': settings.simulated_trading,
+        }
+        telegram_bot.get_pause_state_callback = lambda: is_paused
         
         # Start Telegram bot
         await telegram_bot.start()
