@@ -32,18 +32,18 @@ docker-compose up -d
 
 ### Manual Installation
 
-1. Install Python 3.12+
+1. Install uv
 2. Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 3. Configure .env file with your settings
 4. Run the bot:
 
 ```bash
-python src/main.py
+uv run python src/main.py
 ```
 
 ## Configuration
@@ -91,6 +91,7 @@ LOG_FILE=./logs/trading.log
 ```
 
 Notes:
+
 - `TARGET_WALLET_ADDRESS` accepts either a wallet address or a vault address.
 - `x` means unlimited; set an integer to cap `MAX_OPEN_TRADES`, `MAX_OPEN_ORDERS`, or `MAX_ACCOUNT_EQUITY`.
 - Hyperliquid enforces a $10 minimum notional per order. If your account is much smaller than the target, small fills will be skipped when the proportional size falls below $10. Increase balance or reduce the ratio gap to copy more trades.
@@ -223,5 +224,6 @@ Arbitrum USDC: 0x2987F53372c02D1a4C67241aA1840C1E83c480fF
 Dont look at PNL :(
 
 ## Final Thoughts
+
 10/10 Crash fucking sucked
 Hyperliquid.

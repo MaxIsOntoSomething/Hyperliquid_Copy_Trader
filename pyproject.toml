@@ -1,0 +1,21 @@
+[project]
+name = "hyperliquid-copy-trader"
+version = "0.1.0"
+description = "Automated copy trading bot for Hyperliquid DEX. Copies trades from any wallet in real-time with automatic position sizing."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.13.5",
+    "eth-account>=0.13.7",
+    "loguru>=0.7.3",
+    "python-dotenv>=1.2.2",
+    "python-telegram-bot>=22.7",
+    "websockets==12.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "pytest-mock>=3.15.1",
+]
